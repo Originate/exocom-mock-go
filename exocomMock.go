@@ -34,9 +34,6 @@ func New() *ExoCom {
 	http.Handle("/services", websocket.Handler(onConnected))
 	log.Println("EXOCOM: ExoCom initialized!")
 	doneChannel := make(chan bool)
-	go func() {
-		select {}
-	}()
 	return &ExoCom{0, nil, doneChannel}
 }
 
@@ -47,7 +44,7 @@ func (exocom *ExoCom) Close() {
 func (exocom *ExoCom) Listen(port int) {
 	log.Println("EXOCOM: Starting listener.")
 	exocom.ServerPort = port
-	err := http.ListenAndServe(fmt.Sprintf("localhost:%d", port), websocket.Handler(onConnected))
+	err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil /*websocket.Handler(onConnected)*/)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -56,12 +53,12 @@ func (exocom *ExoCom) Listen(port int) {
 
 func onConnected(ws *websocket.Conn) {
 	var message Message
-	err := websocket.JSON.Receive(ws, &message)
 	log.Println("EXOCOM: Client connected!")
+	err := websocket.JSON.Receive(ws, &message)
 	if err != nil {
 		log.Fatalln(err)
 	} else {
-		fmt.Println(message)
+		log.Printf("EXOCOM: %#v\n", message)
 	}
 }
 
