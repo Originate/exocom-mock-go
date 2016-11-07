@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sync"
 
 	"golang.org/x/net/websocket"
 )
@@ -12,6 +13,7 @@ type ExoCom struct {
 	ServerPort       int
 	Services         map[string]*websocket.Conn
 	ReceivedMessages []Message
+	messageMutex     *sync.Mutex
 }
 
 type Message struct {
@@ -26,7 +28,12 @@ type Message struct {
 
 func New() *ExoCom {
 	log.Println("EXOCOM: ExoCom initialized!")
-	return &ExoCom{0, make(map[string]*websocket.Conn), make([]Message, 0)}
+	return &ExoCom{
+		ServerPort:       0,
+		Services:         make(map[string]*websocket.Conn),
+		ReceivedMessages: make([]Message, 0),
+		registryMutex:    &sync.Mutex{},
+	}
 }
 
 func (exocom *ExoCom) RegisterService(name string, ws *websocket.Conn) {
