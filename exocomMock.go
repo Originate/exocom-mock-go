@@ -32,7 +32,7 @@ func New() *ExoCom {
 		ServerPort:       0,
 		Services:         make(map[string]*websocket.Conn),
 		ReceivedMessages: make([]Message, 0),
-		registryMutex:    &sync.Mutex{},
+		messageMutex:     &sync.Mutex{},
 	}
 }
 
