@@ -54,10 +54,12 @@ func (exocom *ExoCom) Listen(port int) {
 		if err != nil {
 			log.Fatal(err)
 		}
+		exocom.messageMutex.Lock()
 		if incoming.Name == "exocom.register-service" {
 			exocom.RegisterService(incoming.Sender, ws)
 		}
 		exocom.ReceivedMessages = append(exocom.ReceivedMessages, incoming)
+		exocom.messageMutex.Unlock()
 	}
 
 	http.Handle("/services", websocket.Handler(onMessage))
