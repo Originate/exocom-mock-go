@@ -10,10 +10,10 @@ import (
 )
 
 type ExoCom struct {
+	sync.Mutex
 	ServerPort       int
 	Services         map[string]*websocket.Conn
 	ReceivedMessages []Message
-	messageMutex     *sync.Mutex
 }
 
 type Message struct {
@@ -32,7 +32,6 @@ func New() *ExoCom {
 		ServerPort:       0,
 		Services:         make(map[string]*websocket.Conn),
 		ReceivedMessages: make([]Message, 0),
-		messageMutex:     &sync.Mutex{},
 	}
 }
 
@@ -54,12 +53,12 @@ func (exocom *ExoCom) Listen(port int) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		exocom.messageMutex.Lock()
+		exocom.Lock()
 		if incoming.Name == "exocom.register-service" {
 			exocom.RegisterService(incoming.Sender, ws)
 		}
 		exocom.ReceivedMessages = append(exocom.ReceivedMessages, incoming)
-		exocom.messageMutex.Unlock()
+		exocom.Unlock()
 	}
 
 	http.Handle("/services", websocket.Handler(onMessage))
