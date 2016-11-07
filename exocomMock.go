@@ -23,12 +23,6 @@ type Message struct {
 	ResponseTime int    `json:"timestamp"`
 }
 
-type Service struct {
-	name string
-	id   int
-	ws   *websocket.Conn
-}
-
 func New() *ExoCom {
 	log.Println("EXOCOM: ExoCom initialized!")
 	return &ExoCom{0, make(map[string]*websocket.Conn)}
@@ -62,20 +56,4 @@ func (exocom *ExoCom) Listen(port int) {
 		log.Fatalln(err)
 	}
 	log.Println("EXOCOM: Listener is done")
-}
-
-func onConnected(ws *websocket.Conn) {
-	var message Message
-	log.Println("EXOCOM: Client connected!")
-	err := websocket.JSON.Receive(ws, &message)
-	if err != nil {
-		log.Fatalln(err)
-	} else {
-		log.Printf("EXOCOM: %#v\n", message)
-	}
-}
-
-// Service methods
-func (service *Service) New(name string, id int, ws *websocket.Conn) *Service {
-	return &Service{name, id, ws}
 }
