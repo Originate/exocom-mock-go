@@ -9,8 +9,9 @@ import (
 )
 
 type ExoCom struct {
-	ServerPort int
-	Services   map[string]*websocket.Conn
+	ServerPort       int
+	Services         map[string]*websocket.Conn
+	ReceivedMessages []Message
 }
 
 type Message struct {
@@ -25,7 +26,7 @@ type Message struct {
 
 func New() *ExoCom {
 	log.Println("EXOCOM: ExoCom initialized!")
-	return &ExoCom{0, make(map[string]*websocket.Conn)}
+	return &ExoCom{0, make(map[string]*websocket.Conn), make([]Message, 0)}
 }
 
 func (exocom *ExoCom) RegisterService(name string, ws *websocket.Conn) {
@@ -39,8 +40,9 @@ func (exocom *ExoCom) Close() {
 func (exocom *ExoCom) Listen(port int) {
 	log.Println("EXOCOM: Starting listener.")
 	exocom.ServerPort = port
+
 	onMessage := func(ws *websocket.Conn) {
-		var incoming *Message
+		var incoming Message
 		err := websocket.JSON.Receive(ws, &incoming)
 		if err != nil {
 			log.Fatal(err)
@@ -48,6 +50,7 @@ func (exocom *ExoCom) Listen(port int) {
 		if incoming.Name == "exocom.register-service" {
 			exocom.RegisterService(incoming.Sender, ws)
 		}
+		exocom.ReceivedMessages = append(exocom.ReceivedMessages, incoming)
 	}
 
 	http.Handle("/services", websocket.Handler(onMessage))
