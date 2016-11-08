@@ -17,13 +17,13 @@ type ExoCom struct {
 }
 
 type Message struct {
-	Sender       string `json:"sender"`
-	Name         string `json:"name"`
-	Payload      string `json:"payload"`
-	ResponseTo   string `json:"responseTo"`
-	ID           string `json:"id"`
-	Timestamp    int    `json:"timestamp"`
-	ResponseTime int    `json:"timestamp"`
+	Sender       string      `json:"sender"`
+	Name         string      `json:"name"`
+	Payload      interface{} `json:"payload"`
+	ResponseTo   string      `json:"responseTo"`
+	ID           string      `json:"id"`
+	Timestamp    int         `json:"timestamp"`
+	ResponseTime int         `json:"timestamp"`
 }
 
 func New() *ExoCom {
