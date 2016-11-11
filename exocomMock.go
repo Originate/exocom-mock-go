@@ -17,8 +17,8 @@ type ExoCom struct {
 }
 
 type Message struct {
-	Sender       string      `json:"sender"`
 	Name         string      `json:"name"`
+	Sender       string      `json:"sender"`
 	Payload      interface{} `json:"payload"`
 	ResponseTo   string      `json:"responseTo"`
 	ID           string      `json:"id"`
@@ -57,6 +57,7 @@ func (exocom *ExoCom) Listen(port int) {
 		if incoming.Name == "exocom.register-service" {
 			exocom.RegisterService(incoming.Sender, ws)
 		}
+		fmt.Printf("EXOCOM: ---- INCOMING MESSAGE ---- : %#v\n", incoming)
 		exocom.ReceivedMessages = append(exocom.ReceivedMessages, incoming)
 		exocom.Unlock()
 	}
