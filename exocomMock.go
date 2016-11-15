@@ -11,58 +11,79 @@ import (
 
 type ExoCom struct {
 	sync.Mutex
-	ServerPort       int
-	Services         map[string]*websocket.Conn
+	port             int
+	services         map[string]*websocket.Conn
 	ReceivedMessages []Message
+	registerCh       chan *websocket.Conn
+	doneCh           chan bool
+	errCh            chan error
 }
 
 type Message struct {
-	Name         string      `json:"name"`
-	Sender       string      `json:"sender"`
-	Payload      interface{} `json:"payload"`
-	ResponseTo   string      `json:"responseTo"`
-	ID           string      `json:"id"`
-	Timestamp    int         `json:"timestamp"`
-	ResponseTime int         `json:"timestamp"`
+	Name         string      `json:"name,omitempty"`
+	Sender       string      `json:"sender,omitempty"`
+	Payload      interface{} `json:"payload,omitempty"`
+	ResponseTo   string      `json:"responseTo,omitempty"`
+	ID           string      `json:"id,omitempty"`
+	Timestamp    int         `json:"timestamp,omitempty"`
+	ResponseTime int         `json:"timestamp,omitempty"`
 }
 
 func New() *ExoCom {
 	log.Println("EXOCOM: ExoCom initialized!")
 	return &ExoCom{
-		ServerPort:       0,
-		Services:         make(map[string]*websocket.Conn),
+		port:             0,
+		services:         make(map[string]*websocket.Conn),
 		ReceivedMessages: make([]Message, 0),
 	}
 }
 
 func (exocom *ExoCom) RegisterService(name string, ws *websocket.Conn) {
-	exocom.Services[name] = ws
+	exocom.services[name] = ws
 }
 
 func (exocom *ExoCom) Close() {
+	exocom.doneCh <- true
+}
 
+func (exocom *ExoCom) listenToMessages(ws *websocket.Conn) {
+	for {
+		select {
+		case <-exocom.doneCh:
+			return
+		default:
+			var incoming Message
+			if err := websocket.JSON.Receive(ws, &incoming); err != nil {
+				log.Fatal(err)
+			}
+			exocom.Lock()
+			exocom.saveMessage(incoming)
+			exocom.Unlock()
+			return
+		}
+	}
+}
+
+func (exocom *ExoCom) saveMessage(message Message) {
+	exocom.ReceivedMessages = append(exocom.ReceivedMessages, message)
 }
 
 func (exocom *ExoCom) Listen(port int) {
-	log.Println("EXOCOM: Starting listener.")
-	exocom.ServerPort = port
+	exocom.port = port
 
-	onMessage := func(ws *websocket.Conn) {
+	onConnection := func(ws *websocket.Conn) {
 		var incoming Message
-		err := websocket.JSON.Receive(ws, &incoming)
-		if err != nil {
+		if err := websocket.JSON.Receive(ws, &incoming); err != nil {
 			log.Fatal(err)
 		}
-		exocom.Lock()
 		if incoming.Name == "exocom.register-service" {
 			exocom.RegisterService(incoming.Sender, ws)
+			exocom.saveMessage(incoming)
+			exocom.listenToMessages(ws)
 		}
-		fmt.Printf("EXOCOM: ---- INCOMING MESSAGE ---- : %#v\n", incoming)
-		exocom.ReceivedMessages = append(exocom.ReceivedMessages, incoming)
-		exocom.Unlock()
 	}
 
-	http.Handle("/services", websocket.Handler(onMessage))
+	http.Handle("/services", websocket.Handler(onConnection))
 	err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 	if err != nil {
 		log.Fatalln(err)
