@@ -14,8 +14,8 @@ type ExoCom struct {
 	port             int
 	services         map[string]*websocket.Conn
 	ReceivedMessages []Message
-	registerCh       chan *websocket.Conn
 	doneCh           chan bool
+	messageCh        chan Message
 	errCh            chan error
 }
 
@@ -35,6 +35,9 @@ func New() *ExoCom {
 		port:             0,
 		services:         make(map[string]*websocket.Conn),
 		ReceivedMessages: make([]Message, 0),
+		doneCh:           make(chan bool),
+		messageCh:        make(chan Message),
+		errCh:            make(chan error),
 	}
 }
 
@@ -47,19 +50,34 @@ func (exocom *ExoCom) Close() {
 }
 
 func (exocom *ExoCom) listenToMessages(ws *websocket.Conn) {
+	go exocom.messageHandler(ws)
 	for {
 		select {
 		case <-exocom.doneCh:
+			exocom.doneCh <- true
+			return
+		case incoming := <-exocom.messageCh:
+			log.Printf("MESSAGE RECEIVED in listenToMessages: %#v\n", incoming)
+		}
+	}
+}
+
+func (exocom *ExoCom) messageHandler(ws *websocket.Conn) {
+	var incoming Message
+	for {
+		select {
+		case <-exocom.doneCh:
+			ws.Close()
+			exocom.doneCh <- true
 			return
 		default:
-			var incoming Message
 			if err := websocket.JSON.Receive(ws, &incoming); err != nil {
 				log.Fatal(err)
 			}
 			exocom.Lock()
 			exocom.saveMessage(incoming)
 			exocom.Unlock()
-			return
+			exocom.messageCh <- incoming
 		}
 	}
 }
