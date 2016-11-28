@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	graceful "gopkg.in/tylerb/graceful.v1"
+
 	"github.com/fatih/color"
 
 	"golang.org/x/net/websocket"
@@ -18,6 +20,7 @@ var cyan = color.New(color.FgHiCyan).SprintFunc()
 
 type ExoCom struct {
 	sync.Mutex
+	server           *graceful.Server
 	port             int
 	services         map[string]*websocket.Conn
 	ReceivedMessages []Message
@@ -53,9 +56,8 @@ func (exocom *ExoCom) RegisterService(name string, ws *websocket.Conn) {
 }
 
 func (exocom *ExoCom) Close() {
-	log.Println(cyan("EXOCOM: Sending true to doneCh"))
 	exocom.doneCh <- true
-	log.Println(cyan("EXOCOM: Sending true to doneCh sent"))
+	exocom.server.Stop(100 * time.Millisecond)
 }
 
 func (exocom *ExoCom) listenToMessages(ws *websocket.Conn) {
@@ -64,7 +66,6 @@ func (exocom *ExoCom) listenToMessages(ws *websocket.Conn) {
 		select {
 		case <-exocom.doneCh:
 			exocom.doneCh <- true
-			log.Println(cyan("EXOCOM: TERMINATING listenToMessages"))
 			return
 		case incoming := <-exocom.messageCh:
 			log.Printf(cyan("EXOCOM: MESSAGE RECEIVED in listenToMessages: %#v\n"), incoming)
@@ -77,14 +78,11 @@ func (exocom *ExoCom) messageHandler(batman *websocket.Conn) {
 	for {
 		select {
 		case <-exocom.doneCh:
-			log.Println(cyan("EXOCOM: TERMINATING messageHandler"))
 			exocom.doneCh <- true
 			return
 		default:
 			err := websocket.JSON.Receive(batman, &incoming)
 			if err == io.EOF {
-				log.Println(cyan("EXOCOM: Error:"), red(err))
-				log.Println(cyan("EXOCOM: TERMINATING messageHandler"))
 				return
 			}
 			exocom.Lock()
@@ -103,7 +101,7 @@ func (exocom *ExoCom) Listen(port int) {
 	exocom.port = port
 
 	onConnection := func(ws *websocket.Conn) {
-		ws.SetReadDeadline(time.Now().Add(1 * time.Second))
+		//ws.SetReadDeadline(time.Now().Add(1 * time.Second))
 		var incoming Message
 		if err := websocket.JSON.Receive(ws, &incoming); err != nil {
 			log.Fatal(red(err))
@@ -115,11 +113,15 @@ func (exocom *ExoCom) Listen(port int) {
 		}
 	}
 
-	http.Handle("/services", websocket.Handler(onConnection))
-	err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
-	log.Println(cyan("===============SERVER TERMINATED==================="))
+	exocom.server = &graceful.Server{
+		Timeout: 1 * time.Second,
+		Server: &http.Server{
+			Addr:    fmt.Sprintf(":%d", port),
+			Handler: websocket.Handler(onConnection),
+		},
+	}
+	err := exocom.server.ListenAndServe()
 	if err != nil {
 		log.Fatalln(red(err))
 	}
-	log.Println(cyan("EXOCOM: Listener is done"))
 }
