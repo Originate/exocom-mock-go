@@ -22,7 +22,7 @@ type ExoCom struct {
 	sync.Mutex
 	server           *graceful.Server
 	port             int
-	services         map[string]*websocket.Conn
+	Services         map[string]*websocket.Conn
 	ReceivedMessages []Message
 	doneCh           chan bool
 	messageCh        chan Message
@@ -43,7 +43,7 @@ func New() *ExoCom {
 	log.Println("EXOCOM: ExoCom initialized!")
 	return &ExoCom{
 		port:             0,
-		services:         make(map[string]*websocket.Conn),
+		Services:         make(map[string]*websocket.Conn),
 		ReceivedMessages: make([]Message, 0),
 		doneCh:           make(chan bool, 1),
 		messageCh:        make(chan Message),
@@ -52,7 +52,7 @@ func New() *ExoCom {
 }
 
 func (exocom *ExoCom) RegisterService(name string, ws *websocket.Conn) {
-	exocom.services[name] = ws
+	exocom.Services[name] = ws
 }
 
 func (exocom *ExoCom) Close() {
